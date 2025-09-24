@@ -1,5 +1,6 @@
 import React from 'react';
 import { ActivityIndicator, FlatList, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { router } from 'expo-router';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
@@ -68,9 +69,8 @@ export default function ConnectScreen() {
   async function connectTo(device: Device) {
     setUiState('connecting');
     setError(null);
-    setTimeout(() => {
-      setUiState('connected');
-    }, 1200);
+    // Navigate to initialization flow
+    router.push('/init');
   }
 
   function useDemoMode() {
