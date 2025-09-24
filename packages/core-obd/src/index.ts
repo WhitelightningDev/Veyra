@@ -42,6 +42,12 @@ export const pidDecoders: Record<string, (bytes: number[]) => Record<string, num
   "010F": (d) => ({ iat_c: (d[0] ?? 0) - 40 }),
   // 010B – Intake Manifold Absolute Pressure (kPa)
   "010B": (d) => ({ map_kpa: d[0] ?? 0 }),
+  // 0111 – Throttle position (%) = A*100/255
+  "0111": (d) => ({ throttle_pct: Math.round(((d[0] ?? 0) * 10000) / 255) / 100 }),
+  // 0106 – Short Term Fuel Trim Bank 1 (%) = (A-128)*100/128
+  "0106": (d) => ({ stft1_pct: Math.round((((d[0] ?? 0) - 128) * 10000) / 128) / 100 }),
+  // 0107 – Long Term Fuel Trim Bank 1 (%) = (A-128)*100/128
+  "0107": (d) => ({ ltft1_pct: Math.round((((d[0] ?? 0) - 128) * 10000) / 128) / 100 }),
 };
 
 export function decode(servicePid: string, dataBytes: number[]) {
