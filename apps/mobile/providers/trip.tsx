@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTelemetry } from '@/providers/telemetry';
+import { useHistory } from '@/providers/history';
 
 export type TripSample = {
   t: number;
@@ -36,6 +37,7 @@ export function useTrip() {
 
 export function TripProvider({ children }: { children: React.ReactNode }) {
   const t = useTelemetry();
+  const history = useHistory();
   const [active, setActive] = React.useState(false);
   const [current, setCurrent] = React.useState<TripSession | undefined>(undefined);
   const [trips, setTrips] = React.useState<TripSession[]>([]);
@@ -104,5 +106,3 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     </TripContext.Provider>
   );
 }
-  const { useHistory } = require('@/providers/history');
-  const history = useHistory();
