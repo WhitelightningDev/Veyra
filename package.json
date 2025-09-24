@@ -1,5 +1,5 @@
 {
-  "name": "obd-app",
+  "name": "Veyra",
   "private": true,
   "scripts": {
     "build": "turbo run build",
