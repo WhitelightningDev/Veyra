@@ -181,7 +181,7 @@ function DetailsSheet({ entry, onClose, onSearch }: { entry: DtcEntry | null; on
               <Pressable onPress={() => onSearch(entry.code)} style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}>
                 <ThemedText type="defaultSemiBold">Search web</ThemedText>
               </Pressable>
-              <Pressable onPress={() => { /* could present freeze frame if captured */ }} style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}>
+              <Pressable onPress={() => router.push(`/freeze?code=${entry.code}`)} style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}>
                 <ThemedText type="defaultSemiBold">Freeze Frame</ThemedText>
               </Pressable>
             </View>
@@ -216,4 +216,3 @@ const styles = StyleSheet.create({
   sheet: { position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight: '80%', backgroundColor: '#fff', borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16 },
   sheetHandle: { alignSelf: 'center', width: 44, height: 4, backgroundColor: '#00000033', borderRadius: 2, marginBottom: 8 },
 });
-

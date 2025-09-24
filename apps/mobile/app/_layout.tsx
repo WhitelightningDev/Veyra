@@ -20,6 +20,9 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="init" options={{ title: 'Initializing' }} />
         <Stack.Screen name="dtcs" options={{ title: 'Trouble Codes' }} />
+        <Stack.Screen name="freeze" options={{ title: 'Freeze Frame' }} />
+        <Stack.Screen name="vehicle" options={{ title: 'Vehicle Info' }} />
+        <Stack.Screen name="advanced" options={{ title: 'Advanced Scan (Beta)' }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
       <StatusBar style="auto" />
