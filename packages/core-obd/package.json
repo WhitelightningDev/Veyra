@@ -17,7 +17,7 @@
   ],
   "sideEffects": false,
   "scripts": {
-    "build": "tsc -p .",
+    "build": "tsc --declaration --rootDir src --outDir dist --target ES2019 --module CommonJS --strict --esModuleInterop --skipLibCheck",
     "clean": "rimraf dist",
     "prepare": "npm run build"
   },
@@ -34,4 +34,5 @@
     "typescript": "^5.6.3",
     "rimraf": "^6.0.1"
   }
+  
 }

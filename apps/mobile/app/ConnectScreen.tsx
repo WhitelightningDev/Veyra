@@ -89,6 +89,16 @@ export default function ConnectScreen() {
         Connect to OBD Adapter
       </ThemedText>
 
+      {isWeb && (
+        <EmptyState
+          title="Web build: BLE not available"
+          description="Bluetooth connections require the native app. You can use Demo Mode to explore the UI."
+          icon="bluetooth-disabled"
+          primaryLabel="Use Demo Mode"
+          onPrimary={useDemoMode}
+        />
+      )}
+
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={uiState === 'scanning' ? 'Scanning for adapters' : 'Scan for Adapters'}
@@ -122,6 +132,7 @@ export default function ConnectScreen() {
         <StatusPill label="Permissions" value={permissionsOk ? 'OK' : 'Missing'} ok={permissionsOk} />
       </View>
 
+      {!isWeb && (
       <FlatList
         data={devices}
         keyExtractor={(d) => d.id}
@@ -154,7 +165,7 @@ export default function ConnectScreen() {
         ) : null}
         contentContainerStyle={{ paddingBottom: 12 }}
         style={styles.list}
-      />
+      />)}
 
       <Pressable onPress={useDemoMode} style={({ pressed }) => [styles.linkBtn, pressed && styles.btnPressed]}>
         <ThemedText type="defaultSemiBold" style={styles.linkBtnText}>
