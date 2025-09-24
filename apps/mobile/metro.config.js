@@ -21,7 +21,8 @@ config.resolver.extraNodeModules = {
   react: path.resolve(workspaceRoot, 'node_modules/react'),
   'react-dom': path.resolve(workspaceRoot, 'node_modules/react-dom'),
   'react-native': path.resolve(workspaceRoot, 'node_modules/react-native'),
+  'base-64': path.resolve(workspaceRoot, 'node_modules/base-64'),
+  'react-native-ble-plx': path.resolve(workspaceRoot, 'node_modules/react-native-ble-plx'),
 };
 
 module.exports = config;
-
