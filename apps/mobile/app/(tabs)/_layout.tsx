@@ -12,7 +12,13 @@ export default function TabLayout() {
   const colorScheme = useColorScheme();
 
   return (
-    <Tabs
+    <>
+      {/** Global header for tab screens */}
+      {/* We import dynamically to avoid circular deps if any */}
+      {require('@/components/app-header')?.AppHeader ? (
+        React.createElement(require('@/components/app-header').AppHeader, { title: undefined })
+      ) : null}
+      <Tabs
       screenOptions={{
         tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerShown: false,
@@ -39,6 +45,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="chevron.right" color={color} />,
         }}
       />
-    </Tabs>
+      </Tabs>
+    </>
   );
 }

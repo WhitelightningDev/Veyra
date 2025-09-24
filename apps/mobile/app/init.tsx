@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
+import { useUI } from '@/providers/ui';
 
 type StepStatus = 'pending' | 'running' | 'success' | 'error';
 type Step = {
@@ -13,6 +14,7 @@ type Step = {
 };
 
 export default function InitializingAdapter() {
+  const ui = useUI();
   const [steps, setSteps] = React.useState<Step[]>([
     { id: 'atz', label: 'Reset (ATZ)', status: 'pending' },
     { id: 'ate0', label: 'Echo off (ATE0)', status: 'pending' },
@@ -31,6 +33,7 @@ export default function InitializingAdapter() {
   React.useEffect(() => {
     let cancelled = false;
     async function run() {
+      ui.setBusy(true);
       setError(null);
       // Simulate each step sequentially
       for (let i = 0; i < steps.length; i++) {
@@ -47,10 +50,12 @@ export default function InitializingAdapter() {
       if (cancelled) return;
       const v = simulateBatteryVoltage();
       setBattery(v);
+      ui.setBleStatus('connected');
+      ui.showToast('Adapter initialized');
     }
     run().catch((e: any) => {
       setError(String(e?.message ?? e ?? 'Initialization failed'));
-    });
+    }).finally(() => ui.setBusy(false));
     return () => {
       cancelled = true;
     };
@@ -174,4 +179,3 @@ const styles = StyleSheet.create({
   btnPressed: { opacity: 0.8 },
   errorText: { color: '#dc2626', textAlign: 'center' },
 });
-

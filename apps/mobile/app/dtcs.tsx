@@ -5,12 +5,14 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { DTC_LIBRARY, lookupDtc, type DtcEntry } from '@/constants/dtc';
+import { useUI } from '@/providers/ui';
 
 type DtcItem = {
   code: string;
 };
 
 export default function DtcsScreen() {
+  const ui = useUI();
   const [codes, setCodes] = React.useState<DtcItem[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [message, setMessage] = React.useState<string | null>(null);
@@ -24,6 +26,7 @@ export default function DtcsScreen() {
     setTimeout(() => {
       setCodes([{ code: 'P0101' }, { code: 'P0300' }, { code: 'P0420' }]);
       setLoading(false);
+      ui.showToast('Codes loaded');
     }, 700);
   }
 
@@ -35,10 +38,12 @@ export default function DtcsScreen() {
     if (save) {
       // TODO: capture snapshot (codes + optional freeze frame)
       setMessage('Snapshot saved.');
+      ui.showToast('Snapshot saved');
     }
     setCodes([]);
     setConfirmClear(null);
     setMessage('Codes cleared.');
+    ui.showToast('Codes cleared');
   }
 
   function openSearchWeb(code: string) {

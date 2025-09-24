@@ -4,11 +4,13 @@ import { router } from 'expo-router';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
+import { useUI } from '@/providers/ui';
 
 type Device = { id: string; name: string };
 type UiState = 'idle' | 'scanning' | 'connecting' | 'connected' | 'error';
 
 export default function ConnectScreen() {
+  const ui = useUI();
   const [uiState, setUiState] = React.useState<UiState>('idle');
   const [devices, setDevices] = React.useState<Device[]>([]);
   const [error, setError] = React.useState<string | null>(null);
@@ -63,10 +65,12 @@ export default function ConnectScreen() {
       setUiState('error');
       return;
     }
+    ui.setBleStatus('scanning');
     setUiState('scanning');
   }
 
   async function connectTo(device: Device) {
+    ui.setBleStatus('scanning');
     setUiState('connecting');
     setError(null);
     // Navigate to initialization flow
