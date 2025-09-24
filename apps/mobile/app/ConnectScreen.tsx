@@ -6,6 +6,8 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useUI } from '@/providers/ui';
 import { EmptyState } from '@/components/empty-state';
+import { scanForElm, BleElmTransport } from '@/services/ble-elm';
+import { setTransport } from '@/services/obd-transport';
 
 type Device = { id: string; name: string };
 type UiState = 'idle' | 'scanning' | 'connecting' | 'connected' | 'error';
@@ -25,40 +27,33 @@ export default function ConnectScreen() {
     return Boolean((navigator as any).bluetooth);
   }, [isWeb]);
   const [permissionsOk] = React.useState<boolean>(true);
+  const [bleScanning, setBleScanning] = React.useState<boolean>(false);
 
   React.useEffect(() => {
-    let timer: ReturnType<typeof setInterval> | null = null;
-    if (uiState === 'scanning') {
+    let cancelled = false;
+    (async () => {
+      if (uiState !== 'scanning' || isWeb) return;
       setError(null);
       setDevices([]);
-      setCountdown(5);
-      timer = setInterval(() => {
-        setCountdown((c) => {
-          if (c <= 1) {
-            clearInterval(timer!);
-            const found: Device[] = permissionsOk
-              ? [
-                  { id: 'AA:BB:CC:DD:EE:01', name: 'ELM327 v1.5' },
-                  { id: 'AA:BB:CC:DD:EE:02', name: 'OBDLink LX' },
-                ]
-              : [];
-            if (found.length === 0) {
-              setUiState('error');
-              setError(permissionsOk ? 'No devices found nearby.' : 'Bluetooth permissions are missing.');
-            } else {
-              setDevices(found);
-              setUiState('idle');
-            }
-            return 0;
-          }
-          return c - 1;
-        });
-      }, 1000);
-    }
-    return () => {
-      if (timer) clearInterval(timer);
-    };
-  }, [uiState, permissionsOk, bluetoothAvailable]);
+      setBleScanning(true);
+      try {
+        const found = await scanForElm(5000);
+        if (cancelled) return;
+        if (!found.length) {
+          setUiState('error');
+          setError('No devices found nearby.');
+        } else {
+          setDevices(found.map((d) => ({ id: d.id, name: d.name || 'Unknown' })));
+          setUiState('idle');
+        }
+      } catch (e) {
+        if (!cancelled) { setUiState('error'); setError(String((e as any)?.message ?? e)); }
+      } finally {
+        setBleScanning(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [uiState, isWeb]);
 
   function onScan() {
     if (!permissionsOk) {
@@ -74,8 +69,16 @@ export default function ConnectScreen() {
     ui.setBleStatus('scanning');
     setUiState('connecting');
     setError(null);
-    // Navigate to initialization flow
-    router.push('/init');
+    try {
+      const t = new BleElmTransport();
+      await t.connect(device.id);
+      setTransport({ send: (cmd: string) => t.send(cmd) });
+      router.push('/init');
+    } catch (e) {
+      setUiState('error');
+      setError(String((e as any)?.message ?? e));
+      ui.setBleStatus('disconnected');
+    }
   }
 
   function useDemoMode() {

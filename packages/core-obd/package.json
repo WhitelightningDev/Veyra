@@ -17,7 +17,7 @@
   ],
   "sideEffects": false,
   "scripts": {
-    "build": "tsc --declaration --rootDir src --outDir dist --target ES2019 --module CommonJS --strict --esModuleInterop --skipLibCheck",
+    "build": "tsc -p tsconfig.json",
     "clean": "rimraf dist",
     "prepare": "npm run build"
   },

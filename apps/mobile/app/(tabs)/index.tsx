@@ -8,6 +8,8 @@ import { useSettings } from '@/providers/settings';
 import { useTelemetry } from '@/providers/telemetry';
 import { useUI } from '@/providers/ui';
 import { useTrip } from '@/providers/trip';
+import { getTransport } from '@/services/obd-transport';
+import { parseElmLines, decode } from 'core-obd';
 
 type Preset = 'Basic' | 'Performance' | 'Diagnostics';
 
@@ -42,37 +44,48 @@ export default function DashboardScreen() {
   }, [preset, settings.polling.rateHz]);
 
   React.useEffect(() => {
-    if (!polling) return;
-    let mounted = true;
-    const interval = Math.max(50, Math.round(1000 / cfg.hz));
-    const id = setInterval(() => {
-      if (!mounted) return;
-      const now = Date.now();
-      setTickTimes((prev) => {
-        const next = [...prev, now].slice(-20);
-        return next;
-      });
-      // Simulate values; later wire to core-obd read loop
-      if (cfg.pids.rpm) setRpm((v) => clamp((v ?? 750) + randDelta(-150, 200), 650, 6500));
-      if (cfg.pids.speed) setSpeed((v) => clamp((v ?? 0) + randDelta(-3, 5), 0, 200));
-      if (cfg.pids.coolant) setCoolant((v) => clamp((v ?? 70) + randDelta(-1, 1), -40, 120));
-      if (cfg.pids.map) setMap((v) => clamp((v ?? 30) + randDelta(-2, 2), 15, 250));
-      if (cfg.pids.iat) setIat((v) => clamp((v ?? 22) + randDelta(-1, 1), -40, 80));
-      if (cfg.pids.maf) setMaf((v) => clamp((v ?? 2.5) + randDelta(-0.3, 0.5), 0, 300));
-      setThrottle((v) => clamp((v ?? 12) + randDelta(-5, 7), 0, 100));
-      setStft((v) => clamp((v ?? 0) + randDelta(-1.5, 1.5), -25, 25));
-      setLtft((v) => clamp((v ?? 0) + randDelta(-0.2, 0.2), -25, 25));
-      // Simulate battery voltage trends (idle/charging)
-      setBatt((v) => {
-        const base = v ?? 12.4;
-        const delta = randDelta(-0.03, 0.05);
-        return clamp(base + delta, 11.2, 14.8);
-      });
+    let cancelled = false;
+    const tr = getTransport();
+    if (!polling || !tr) return;
+    const pids: string[] = [];
+    if (cfg.pids.rpm) pids.push('010C');
+    if (cfg.pids.speed) pids.push('010D');
+    if (cfg.pids.coolant) pids.push('0105');
+    if (cfg.pids.map) pids.push('010B');
+    if (cfg.pids.iat) pids.push('010F');
+    if (cfg.pids.maf) pids.push('0110');
+    pids.push('0111','0106','0107');
+    let idx = 0;
+    const interval = Math.max(100, Math.round(1000 / cfg.hz));
+    const id = setInterval(async () => {
+      if (cancelled) return;
+      try {
+        const cmd = pids[idx % pids.length]!;
+        idx++;
+        const lines = await tr.send(cmd);
+        const resps = parseElmLines(lines);
+        const resp = resps.find((r) => r.service === '01' && r.pid === cmd.slice(2));
+        if (resp) {
+          const dec = decode(`01${resp.pid}`, resp.data);
+          if ('rpm' in dec) setRpm(dec.rpm as number);
+          if ('speed_kph' in dec) setSpeed(dec.speed_kph as number);
+          if ('coolant_c' in dec) setCoolant(dec.coolant_c as number);
+          if ('map_kpa' in dec) setMap(dec.map_kpa as number);
+          if ('iat_c' in dec) setIat(dec.iat_c as number);
+          if ('maf_gps' in dec) setMaf(dec.maf_gps as number);
+          if ('throttle_pct' in dec) setThrottle(dec.throttle_pct as number);
+          if ('stft1_pct' in dec) setStft(dec.stft1_pct as number);
+          if ('ltft1_pct' in dec) setLtft(dec.ltft1_pct as number);
+          setTickTimes((prev) => [...prev.slice(-19), Date.now()]);
+        }
+        if (idx % (pids.length * 5) === 0) {
+          const rv = await tr.send('ATRV');
+          const m = rv.join(' ').match(/([0-9]+\.[0-9])\s*V/i);
+          if (m) setBatt(parseFloat(m[1]!));
+        }
+      } catch {}
     }, interval);
-    return () => {
-      mounted = false;
-      clearInterval(id);
-    };
+    return () => { cancelled = true; clearInterval(id); };
   }, [polling, cfg]);
 
   const approxHz = React.useMemo(() => {
