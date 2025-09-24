@@ -13,6 +13,7 @@ export default function AdvancedScanScreen() {
   const [probing, setProbing] = React.useState(false);
   const [results, setResults] = React.useState<EcuResult[]>([]);
   const [message, setMessage] = React.useState<string | null>(null);
+  const isWeb = typeof navigator !== 'undefined' && (navigator as any).product === 'Gecko' || (typeof window !== 'undefined' && window?.matchMedia && window.matchMedia('(min-width:0px)').matches && (typeof document !== 'undefined'));
 
   async function probe() {
     if (!enabled) return;
@@ -46,15 +47,15 @@ export default function AdvancedScanScreen() {
 
       <View style={styles.rowBetween}>
         <ThemedText type="defaultSemiBold">Enable Advanced Scan (UDS)</ThemedText>
-        <Switch value={enabled} onValueChange={setEnabled} />
+        <Switch value={enabled} onValueChange={setEnabled} disabled={isWeb} />
       </View>
-      <ThemedText style={styles.note}>Read-only probing of safe data. No resets/actuation will be performed.</ThemedText>
+      <ThemedText style={styles.note}>{isWeb ? 'Unavailable on web — use the native app to probe ECUs.' : 'Read-only probing of safe data. No resets/actuation will be performed.'}</ThemedText>
 
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Probe ECUs"
         onPress={probe}
-        disabled={!enabled || probing}
+        disabled={isWeb || !enabled || probing}
         style={({ pressed }) => [
           styles.primary,
           (!enabled || probing) && styles.disabled,
