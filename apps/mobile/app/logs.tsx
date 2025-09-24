@@ -3,6 +3,11 @@ import { FlatList, Linking, Modal, Pressable, ScrollView, StyleSheet, View } fro
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
+import { EmptyState } from '@/components/empty-state';
+import { router } from 'expo-router';
+import { useUI } from '@/providers/ui';
+import { useTrip } from '@/providers/trip';
+import { useHistory } from '@/providers/history';
 
 type LiveSample = { t: number; rpm?: number; speed?: number; coolant?: number };
 type LiveSession = {
@@ -24,16 +29,22 @@ type TabKey = 'logs' | 'snapshots';
 
 export default function LogsExportsScreen() {
   const [tab, setTab] = React.useState<TabKey>('logs');
+  const trips = useTrip();
+  const history = useHistory();
   const [sessions, setSessions] = React.useState<LiveSession[]>(() => demoSessions());
   const [shots, setShots] = React.useState<Snapshot[]>(() => demoSnapshots());
   const [selectedSession, setSelectedSession] = React.useState<LiveSession | null>(null);
   const [selectedShot, setSelectedShot] = React.useState<Snapshot | null>(null);
   const [message, setMessage] = React.useState<string | null>(null);
+  const ui = useUI();
 
   function openDataUrl(mime: string, content: string) {
     const encoded = encodeURIComponent(content);
     const url = `data:${mime};charset=utf-8,${encoded}`;
-    Linking.openURL(url).catch(() => setMessage('Unable to open exporter. Long-press to copy text.'));
+    Linking.openURL(url).catch(() => {
+      setMessage('Unable to open exporter. Long-press to copy text.');
+      ui.setError('Export failed');
+    });
   }
 
   function exportSessionJSON(s: LiveSession) {
@@ -91,11 +102,19 @@ export default function LogsExportsScreen() {
       </View>
 
       {tab === 'logs' ? (
-        sessions.length === 0 ? (
-          <ThemedText style={styles.empty}>No live logs yet. Start polling to record.</ThemedText>
+        (sessions.length === 0 && trips.trips.length === 0) ? (
+          <EmptyState
+            title="No live logs yet"
+            description="Start live polling to record a session."
+            icon="timeline"
+            primaryLabel="Go to Dashboard"
+            onPrimary={() => router.push('/(tabs)')}
+            secondaryLabel="Settings"
+            onSecondary={() => router.push('/settings')}
+          />
         ) : (
           <FlatList
-            data={sessions}
+            data={[...trips.trips.map(tripToSession), ...sessions]}
             keyExtractor={(s) => s.id}
             renderItem={({ item }) => (
               <LogRow
@@ -110,7 +129,15 @@ export default function LogsExportsScreen() {
           />
         )
       ) : shots.length === 0 ? (
-        <ThemedText style={styles.empty}>No snapshots saved yet. Save from DTCs or Freeze Frame.</ThemedText>
+        <EmptyState
+          title="No snapshots yet"
+          description="Save a snapshot from DTCs or Freeze Frame."
+          icon="save-alt"
+          primaryLabel="Go to DTCs"
+          onPrimary={() => router.push('/dtcs')}
+          secondaryLabel="Freeze Frame"
+          onSecondary={() => router.push('/freeze')}
+        />
       ) : (
         <FlatList
           data={shots}
@@ -129,6 +156,16 @@ export default function LogsExportsScreen() {
       )}
 
       {message && <ThemedText style={styles.message}>{message}</ThemedText>}
+
+      {/* Quick History */}
+      <View style={{ marginTop: 8 }}>
+        {history.lastTrip && (
+          <ThemedText style={styles.dim}>Last trip: {new Date(history.lastTrip.startedAt).toLocaleString()} • samples {history.lastTrip.samples ?? 0}</ThemedText>
+        )}
+        {history.cleared.length > 0 && (
+          <ThemedText style={styles.dim}>Last cleared DTCs: {history.cleared.slice(0,5).map((c)=>c.codes.join(' ')).join(' | ')}</ThemedText>
+        )}
+      </View>
 
       <SessionDetailModal s={selectedSession} onClose={() => setSelectedSession(null)} />
       <SnapshotDetailModal sh={selectedShot} onClose={() => setSelectedShot(null)} />
@@ -154,10 +191,10 @@ function LogRow({ s, onPress, onExportJSON, onExportCSV }: { s: LiveSession; onP
         </ThemedText>
       </View>
       <View style={styles.rowActions}>
-        <Pressable onPress={onExportCSV} style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Export CSV" onPress={onExportCSV} style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}>
           <ThemedText type="defaultSemiBold">CSV</ThemedText>
         </Pressable>
-        <Pressable onPress={onExportJSON} style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Export JSON" onPress={onExportJSON} style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}>
           <ThemedText type="defaultSemiBold">JSON</ThemedText>
         </Pressable>
       </View>
@@ -175,10 +212,10 @@ function SnapshotRow({ sh, onPress, onExportJSON, onExportCSV }: { sh: Snapshot;
         </ThemedText>
       </View>
       <View style={styles.rowActions}>
-        <Pressable onPress={onExportCSV} style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Export CSV" onPress={onExportCSV} style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}>
           <ThemedText type="defaultSemiBold">CSV</ThemedText>
         </Pressable>
-        <Pressable onPress={onExportJSON} style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Export JSON" onPress={onExportJSON} style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}>
           <ThemedText type="defaultSemiBold">JSON</ThemedText>
         </Pressable>
       </View>
@@ -203,6 +240,9 @@ function SessionDetailModal({ s, onClose }: { s: LiveSession | null; onClose: ()
                 <ThemedText style={[styles.key, { fontWeight: '600' }]}>rpm</ThemedText>
                 <ThemedText style={[styles.key, { fontWeight: '600' }]}>speed</ThemedText>
                 <ThemedText style={[styles.key, { fontWeight: '600' }]}>coolant</ThemedText>
+                <ThemedText style={[styles.key, { fontWeight: '600' }]}>thr</ThemedText>
+                <ThemedText style={[styles.key, { fontWeight: '600' }]}>stft</ThemedText>
+                <ThemedText style={[styles.key, { fontWeight: '600' }]}>ltft</ThemedText>
               </View>
               {s.samples.slice(0, 50).map((r) => (
                 <View key={r.t} style={styles.tableRow}>
@@ -210,6 +250,9 @@ function SessionDetailModal({ s, onClose }: { s: LiveSession | null; onClose: ()
                   <ThemedText style={styles.key}>{r.rpm ?? ''}</ThemedText>
                   <ThemedText style={styles.key}>{r.speed ?? ''}</ThemedText>
                   <ThemedText style={styles.key}>{r.coolant ?? ''}</ThemedText>
+                  <ThemedText style={styles.key}>{(r as any).throttle ?? ''}</ThemedText>
+                  <ThemedText style={styles.key}>{(r as any).stft ?? ''}</ThemedText>
+                  <ThemedText style={styles.key}>{(r as any).ltft ?? ''}</ThemedText>
                 </View>
               ))}
               {s.samples.length > 50 && (
@@ -261,6 +304,18 @@ function demoSessions(): LiveSession[] {
   return [
     { id: 'sess_' + now.toString(36), startedAt: new Date(now - 60000), durationSec: 60, avgHz: 1, samples },
   ];
+}
+
+// Convert TripSession to LiveSession shape for rendering/export
+function tripToSession(trip: import('@/providers/trip').TripSession): LiveSession {
+  const samples: LiveSample[] = trip.samples.map((s) => ({ t: Math.floor((s.t - trip.startedAt) / 1000), rpm: s.rpm ?? undefined, speed: s.speed ?? undefined, coolant: undefined }));
+  return {
+    id: trip.id,
+    startedAt: new Date(trip.startedAt),
+    durationSec: Math.max(0, Math.floor(((trip.endedAt ?? Date.now()) - trip.startedAt) / 1000)),
+    avgHz: samples.length / Math.max(1, (samples[samples.length - 1]?.t ?? 1)),
+    samples,
+  };
 }
 
 function demoSnapshots(): Snapshot[] {

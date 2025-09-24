@@ -3,6 +3,7 @@ import { ActivityIndicator, FlatList, Pressable, StyleSheet, Switch, View } from
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
+import { discoverEcus, udsReadSafe, readMode06 } from '@/services/obd-ops';
 
 type DidItem = { id: string; label: string; value: string };
 type EcuResult = { address: string; name: string; dids: DidItem[] };
@@ -18,9 +19,24 @@ export default function AdvancedScanScreen() {
     setProbing(true);
     setMessage(null);
     setResults([]);
-    // Simulate a UDS probe; wire to transport later (read-only DIDs only)
-    const data = await simulateProbe();
-    setResults(data);
+    try {
+      const ecus = await discoverEcus();
+      const out: EcuResult[] = [];
+      for (const ecu of ecus) {
+        const safe = await udsReadSafe(ecu.id);
+        out.push({ address: ecu.id, name: ecu.name, dids: safe.map((s) => ({ id: s.did, label: s.label, value: s.value })) });
+      }
+      // Mode 06 as a pseudo ECU section
+      const m6 = await readMode06();
+      if (m6.length) {
+        out.unshift({ address: 'Mode06', name: 'On-Board Monitoring', dids: m6.slice(0, 8).map((r) => ({ id: `T${r.tid}/C${r.cid}`, label: `T${r.tid} C${r.cid}`, value: `${r.value} (min ${r.min}, max ${r.max}) ${r.pass ? 'PASS' : 'FAIL'}` })) });
+      }
+      setResults(out.length ? out : await simulateProbe());
+    } catch (e) {
+      setMessage(String((e as any)?.message ?? e ?? 'Probe failed'));
+      const data = await simulateProbe();
+      setResults(data);
+    }
     setProbing(false);
   }
 
@@ -35,6 +51,8 @@ export default function AdvancedScanScreen() {
       <ThemedText style={styles.note}>Read-only probing of safe data. No resets/actuation will be performed.</ThemedText>
 
       <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Probe ECUs"
         onPress={probe}
         disabled={!enabled || probing}
         style={({ pressed }) => [

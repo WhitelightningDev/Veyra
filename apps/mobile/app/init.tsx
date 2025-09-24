@@ -52,6 +52,10 @@ export default function InitializingAdapter() {
       setBattery(v);
       ui.setBleStatus('connected');
       ui.showToast('Adapter initialized');
+      // Navigate to Dashboard after a short delay
+      setTimeout(() => {
+        router.replace('/(tabs)');
+      }, 400);
     }
     run().catch((e: any) => {
       setError(String(e?.message ?? e ?? 'Initialization failed'));

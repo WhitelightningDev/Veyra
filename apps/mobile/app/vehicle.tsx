@@ -60,7 +60,7 @@ export default function VehicleInfoScreen() {
       <ThemedText type="title" style={styles.header}>Vehicle Info</ThemedText>
 
       <KV label="VIN" value={info.vin ?? '—'}>
-        <Pressable onPress={copyVin} style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Copy VIN" onPress={copyVin} style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}>
           <ThemedText type="defaultSemiBold">Copy</ThemedText>
         </Pressable>
       </KV>
@@ -86,7 +86,7 @@ export default function VehicleInfoScreen() {
       </View>
 
       <View style={styles.actions}>
-        <Pressable onPress={runQuickTest} disabled={loading} style={({ pressed }) => [styles.primary, pressed && styles.pressed, loading && styles.disabled]}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Run Quick Test" onPress={runQuickTest} disabled={loading} style={({ pressed }) => [styles.primary, pressed && styles.pressed, loading && styles.disabled]}>
           <ThemedText type="defaultSemiBold" style={{ color: '#fff' }}>{loading ? 'Testing…' : 'Run Quick Test'}</ThemedText>
         </Pressable>
       </View>
@@ -137,4 +137,3 @@ const styles = StyleSheet.create({
   dim: { opacity: 0.6 },
   message: { textAlign: 'center', opacity: 0.8, marginTop: 8 },
 });
-

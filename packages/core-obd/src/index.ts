@@ -164,3 +164,92 @@ export function tryDecodeVin(resp: ObdResponse): string | null {
   if (resp.service !== "09" || resp.pid !== "02") return null;
   return decodeVinFromBytes(resp.data);
 }
+
+// ------------------------------
+// Readiness (Mode 01 PID 01) minimal decode
+// ------------------------------
+export type Readiness0101 = {
+  milOn: boolean;
+  dtcCount: number;
+  ignitionType: "spark" | "compression";
+  raw: number[];
+};
+
+export function decodeReadiness0101(bytes: number[]): Readiness0101 | null {
+  if (bytes.length < 4) return null;
+  const A = bytes[0]!;
+  const B = bytes[1]!;
+  // const C = bytes[2]!;
+  // const D = bytes[3]!;
+  const milOn = (A & 0x80) !== 0;
+  const dtcCount = A & 0x7f;
+  const ignitionType = (B & 0x08) !== 0 ? "compression" : "spark";
+  return { milOn, dtcCount, ignitionType, raw: bytes.slice(0, 4) };
+}
+
+// ------------------------------
+// Mode 06 (On-board monitoring) – simple record decode
+// ------------------------------
+export type Mode06Record = {
+  tid: number; // Test ID
+  cid: number; // Component ID
+  value: number; // measured value (word)
+  min: number; // min limit (word)
+  max: number; // max limit (word)
+  pass: boolean;
+};
+
+export function decodeMode06Records(bytes: number[]): Mode06Record[] {
+  // Heuristic: many ECUs return repeating 8-byte groups: TID, CID, VAL(2B), MIN(2B), MAX(2B)
+  const out: Mode06Record[] = [];
+  for (let i = 0; i + 7 < bytes.length; i += 8) {
+    const tid = bytes[i]!;
+    const cid = bytes[i + 1]!;
+    const value = (bytes[i + 2]! << 8) + bytes[i + 3]!;
+    const min = (bytes[i + 4]! << 8) + bytes[i + 5]!;
+    const max = (bytes[i + 6]! << 8) + bytes[i + 7]!;
+    out.push({ tid, cid, value, min, max, pass: value >= min && value <= max });
+  }
+  return out;
+}
+
+// ------------------------------
+// Helpers to extract CAN ID from ELM raw lines (best-effort)
+// ------------------------------
+export function extractCanIdFromRawLine(raw: string): string | null {
+  const m = raw.trim().match(/^([0-9A-Fa-f]{3,4})\b/);
+  if (!m) return null;
+  const id = m[1]!.toUpperCase();
+  // Typical response IDs 7E8..7EF, filter plausible IDs
+  if (/^(7E[0-9A-F])$/.test(id) || /^[0-9A-F]{3}$/.test(id) || /^[0-9A-F]{4}$/.test(id)) return id;
+  return null;
+}
+
+// ------------------------------
+// UDS helpers (ReadDataByIdentifier 0x22) – minimal decoding
+// ------------------------------
+export type UdsDidResult = { did: number; label: string; value: string };
+
+export function udsBuildReadDid(didHex: string): string {
+  // e.g. didHex = 'F190' (VIN)
+  return `22${didHex.toUpperCase()}`;
+}
+
+export function udsDecodeDid(did: number, data: number[]): UdsDidResult {
+  const hex = did.toString(16).toUpperCase().padStart(4, "0");
+  if (hex === "F190") {
+    const val = data.map((b) => (b >= 0x20 && b <= 0x7e ? String.fromCharCode(b) : "")).join("").trim();
+    return { did, label: "VIN (UDS)", value: val };
+  }
+  if (hex === "F18C") {
+    // Mileage/odometer (vendor specific). Interpret big-endian integer if plausible
+    let v = 0;
+    for (const b of data) v = (v << 8) + b;
+    return { did, label: "Odometer", value: `${v} km` };
+  }
+  if (hex === "F187") {
+    const s = data.map((b) => (b >= 0x20 && b <= 0x7e ? String.fromCharCode(b) : "")).join("").trim();
+    return { did, label: "ECU Serial", value: s };
+  }
+  return { did, label: `DID 0x${hex}`, value: data.map((b) => b.toString(16).padStart(2, "0").toUpperCase()).join(" ") };
+}

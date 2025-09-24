@@ -5,6 +5,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useUI } from '@/providers/ui';
+import { EmptyState } from '@/components/empty-state';
 
 type Device = { id: string; name: string };
 type UiState = 'idle' | 'scanning' | 'connecting' | 'connected' | 'error';
@@ -89,6 +90,8 @@ export default function ConnectScreen() {
       </ThemedText>
 
       <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={uiState === 'scanning' ? 'Scanning for adapters' : 'Scan for Adapters'}
         onPress={onScan}
         disabled={uiState === 'scanning' || uiState === 'connecting'}
         style={({ pressed }) => [
@@ -134,6 +137,8 @@ export default function ConnectScreen() {
               <ThemedText style={styles.deviceId}>{item.id}</ThemedText>
             </View>
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Connect to ${item.name || 'Unknown'} ${item.id}`}
               onPress={() => connectTo(item)}
               disabled={uiState === 'connecting' || uiState === 'connected'}
               style={({ pressed }) => [styles.secondaryBtn, pressed && styles.btnPressed]}
@@ -158,7 +163,21 @@ export default function ConnectScreen() {
       </Pressable>
 
       {uiState === 'error' && !!error && (
-        <ThemedText style={styles.errorText}>{error}</ThemedText>
+        <EmptyState
+          title={error.includes('permissions') ? 'Bluetooth permissions required' : error.includes('devices') ? 'No devices found' : 'Connection issue'}
+          description={error}
+          icon={error.includes('permissions') ? 'lock' : error.includes('devices') ? 'bluetooth' : 'error-outline'}
+          primaryLabel={error.includes('permissions') ? 'Open Settings' : 'Retry Scan'}
+          onPrimary={() => {
+            if (error.includes('permissions')) {
+              try { require('react-native').Linking.openSettings(); } catch {}
+            } else {
+              onScan();
+            }
+          }}
+          secondaryLabel="Use Demo Mode"
+          onSecondary={useDemoMode}
+        />
       )}
 
       {uiState === 'connected' && (

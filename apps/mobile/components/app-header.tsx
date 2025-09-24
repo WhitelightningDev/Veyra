@@ -18,7 +18,7 @@ export function AppHeader({ title }: { title?: string }) {
         <View style={[styles.chip, { backgroundColor: chip.bg }]}> 
           <ThemedText style={[styles.chipText, { color: chip.fg }]}>{chip.text}</ThemedText>
         </View>
-        <Pressable onPress={() => router.push('/settings')} style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.8 }]}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Open Settings" hitSlop={10} onPress={() => router.push('/settings')} style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.8 }]}> 
           <MaterialIcons name="settings" size={22} color="#666" />
         </Pressable>
       </View>
@@ -34,4 +34,3 @@ const styles = StyleSheet.create({
   chipText: { fontSize: 12 },
   iconBtn: { padding: 6, marginLeft: 2 },
 });
-

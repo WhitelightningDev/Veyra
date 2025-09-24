@@ -3,78 +3,38 @@ import { Pressable, ScrollView, StyleSheet, Switch, View, Platform } from 'react
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
-
-type TempUnit = 'C' | 'F';
-type SpeedUnit = 'kmh' | 'mph';
-type PressureUnit = 'kPa' | 'psi';
-type Preset = 'Basic' | 'Performance' | 'Diagnostics';
-type ThemePref = 'system' | 'light' | 'dark';
-
-type SettingsState = {
-  units: { temp: TempUnit; speed: SpeedUnit; pressure: PressureUnit };
-  polling: { rateHz: number; preset: Preset };
-  connection: { autoReconnect: boolean; rememberLast: boolean };
-  safety: { warnLowBatt: boolean; blockClearWhenRunning: boolean };
-  theme: ThemePref;
-  developer: { showRawElm: boolean };
-};
-
-const DEFAULTS: SettingsState = {
-  units: { temp: 'C', speed: 'kmh', pressure: 'kPa' },
-  polling: { rateHz: 2, preset: 'Basic' },
-  connection: { autoReconnect: true, rememberLast: true },
-  safety: { warnLowBatt: true, blockClearWhenRunning: true },
-  theme: 'system',
-  developer: { showRawElm: false },
-};
+import { useSettings, DEFAULT_SETTINGS, type SettingsState, type TempUnit, type SpeedUnit, type PressureUnit, type Preset, type ThemePref } from '@/providers/settings';
+import { useUI } from '@/providers/ui';
 
 export default function SettingsScreen() {
-  const storage = useOptionalAsyncStorage();
-  const [settings, setSettings] = React.useState<SettingsState>(DEFAULTS);
+  const { settings, save } = useSettings();
+  const ui = useUI();
+  const [draft, setDraft] = React.useState<SettingsState>(settings);
   const [message, setMessage] = React.useState<string | null>(null);
 
-  // Load persisted settings once
-  React.useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        if (!storage) return;
-        const raw = await storage.getItem('settings');
-        if (raw && mounted) setSettings({ ...DEFAULTS, ...JSON.parse(raw) });
-      } catch {}
-    })();
-    return () => { mounted = false; };
-  }, [storage]);
-
-  async function persist(next: SettingsState) {
-    setSettings(next);
-    try {
-      if (storage) await storage.setItem('settings', JSON.stringify(next));
-    } catch {}
-  }
+  React.useEffect(() => { setDraft(settings); }, [settings]);
 
   function setUnit<K extends keyof SettingsState['units']>(key: K, val: SettingsState['units'][K]) {
-    persist({ ...settings, units: { ...settings.units, [key]: val } });
+    setDraft({ ...draft, units: { ...draft.units, [key]: val } });
   }
   function setPreset(p: Preset) {
-    persist({ ...settings, polling: { ...settings.polling, preset: p } });
+    setDraft({ ...draft, polling: { ...draft.polling, preset: p } });
   }
   function incRate(delta: number) {
-    const r = Math.max(1, Math.min(10, settings.polling.rateHz + delta));
-    persist({ ...settings, polling: { ...settings.polling, rateHz: r } });
+    const r = Math.max(1, Math.min(10, draft.polling.rateHz + delta));
+    setDraft({ ...draft, polling: { ...draft.polling, rateHz: r } });
   }
   function setConn<K extends keyof SettingsState['connection']>(key: K, val: boolean) {
-    persist({ ...settings, connection: { ...settings.connection, [key]: val } });
+    setDraft({ ...draft, connection: { ...draft.connection, [key]: val } });
   }
   function setSafety<K extends keyof SettingsState['safety']>(key: K, val: boolean) {
-    persist({ ...settings, safety: { ...settings.safety, [key]: val } });
+    setDraft({ ...draft, safety: { ...draft.safety, [key]: val } });
   }
   function setTheme(t: ThemePref) {
-    persist({ ...settings, theme: t });
-    setMessage('Theme preference saved.');
+    setDraft({ ...draft, theme: t });
   }
   function setDeveloper<K extends keyof SettingsState['developer']>(key: K, val: boolean) {
-    persist({ ...settings, developer: { ...settings.developer, [key]: val } });
+    setDraft({ ...draft, developer: { ...draft.developer, [key]: val } });
   }
 
   async function copyLastSessionLog() {
@@ -99,11 +59,19 @@ export default function SettingsScreen() {
   }
 
   function resetDefaults() {
-    persist(DEFAULTS);
-    setMessage('Settings reset to defaults');
+    setDraft(DEFAULT_SETTINGS);
+    setMessage('Draft reset to defaults');
   }
 
-  const { units, polling, connection, safety, theme, developer } = settings;
+  const dirty = JSON.stringify(draft) !== JSON.stringify(settings);
+
+  async function handleSave() {
+    await save(draft);
+    ui.showToast('Settings saved');
+    setMessage('Settings applied');
+  }
+
+  const { units, polling, connection, safety, theme, developer } = draft;
 
   return (
     <ThemedView style={styles.container}>
@@ -133,7 +101,7 @@ export default function SettingsScreen() {
           </Row>
         </Section>
 
-        <Section title="Polling">
+      <Section title="Polling">
           <Row label={`Rate (${polling.rateHz} Hz)`}>
             <View style={styles.stepperRow}>
               <Pressable onPress={() => incRate(-1)} style={({ pressed }) => [styles.stepBtn, pressed && styles.pressed]}><ThemedText>-</ThemedText></Pressable>
@@ -150,6 +118,28 @@ export default function SettingsScreen() {
               onChange={(v) => setPreset(v as Preset)}
             />
           </Row>
+        </Section>
+
+        <Section title="Dashboard">
+          <Row label="Theme">
+            <Segmented
+              value={draft.dashboard?.theme ?? 'default'}
+              options={[{ key: 'default', label: 'Default' }, { key: 'performance', label: 'Performance' }, { key: 'eco', label: 'Eco' }]}
+              onChange={(v) => setDraft({ ...draft, dashboard: { ...(draft.dashboard ?? DEFAULT_SETTINGS.dashboard!), theme: v as any, showSparklines: draft.dashboard?.showSparklines ?? true, cards: draft.dashboard?.cards ?? DEFAULT_SETTINGS.dashboard!.cards } })}
+            />
+          </Row>
+          <ToggleRow label="Show sparklines" value={draft.dashboard?.showSparklines ?? true} onChange={(val) => setDraft({ ...draft, dashboard: { ...(draft.dashboard ?? DEFAULT_SETTINGS.dashboard!), showSparklines: val, theme: draft.dashboard?.theme ?? 'default', cards: draft.dashboard?.cards ?? DEFAULT_SETTINGS.dashboard!.cards } })} />
+          <ThemedText style={{ marginTop: 8, marginBottom: 4 }}>Visible gauges</ThemedText>
+          <View style={{ gap: 6 }}>
+            {(['rpm','speed','coolant','map','iat','maf','battery','boost'] as const).map((k) => (
+              <ToggleRow
+                key={k}
+                label={k.toUpperCase()}
+                value={(draft.dashboard?.cards as any)?.[k] ?? (DEFAULT_SETTINGS.dashboard!.cards as any)[k]}
+                onChange={(val) => setDraft({ ...draft, dashboard: { ...(draft.dashboard ?? DEFAULT_SETTINGS.dashboard!), theme: draft.dashboard?.theme ?? 'default', showSparklines: draft.dashboard?.showSparklines ?? true, cards: { ...(draft.dashboard?.cards ?? DEFAULT_SETTINGS.dashboard!.cards), [k]: val } } })}
+              />
+            ))}
+          </View>
         </Section>
 
         <Section title="Connection">
@@ -175,14 +165,22 @@ export default function SettingsScreen() {
         <Section title="Developer">
           <ToggleRow label="Show raw ELM log" value={developer.showRawElm} onChange={(v) => setDeveloper('showRawElm', v)} />
           <Row label="Copy last session log">
-            <Pressable onPress={copyLastSessionLog} style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Copy last session log" onPress={copyLastSessionLog} style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}>
               <ThemedText type="defaultSemiBold">Copy</ThemedText>
             </Pressable>
           </Row>
         </Section>
 
+        <Section title="Accessibility">
+          <ToggleRow label="Large font" value={draft.accessibility?.largeFont ?? false} onChange={(v) => setDraft({ ...draft, accessibility: { ...(draft.accessibility ?? {}), largeFont: v, announceDtcVoice: draft.accessibility?.announceDtcVoice ?? false } })} />
+          <ToggleRow label="Announce DTC by voice" value={draft.accessibility?.announceDtcVoice ?? false} onChange={(v) => setDraft({ ...draft, accessibility: { ...(draft.accessibility ?? {}), announceDtcVoice: v, largeFont: draft.accessibility?.largeFont ?? false } })} />
+        </Section>
+
         <View style={{ height: 8 }} />
-        <Pressable onPress={resetDefaults} style={({ pressed }) => [styles.resetBtn, pressed && styles.pressed]}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Save settings" onPress={handleSave} disabled={!dirty} style={({ pressed }) => [styles.saveBtn, (!dirty) && styles.disabled, pressed && styles.pressed]}>
+          <ThemedText type="defaultSemiBold" style={{ color: '#fff' }}>Save</ThemedText>
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Reset to defaults" onPress={resetDefaults} style={({ pressed }) => [styles.resetBtn, pressed && styles.pressed]}>
           <ThemedText type="defaultSemiBold" style={{ color: '#fff' }}>Reset to defaults</ThemedText>
         </Pressable>
 
@@ -231,17 +229,6 @@ function Segmented({ value, options, onChange }: { value: string; options: { key
   );
 }
 
-function useOptionalAsyncStorage(): null | { getItem: (k: string) => Promise<string | null>; setItem: (k: string, v: string) => Promise<void> } {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const AsyncStorage = require('@react-native-async-storage/async-storage');
-    if (AsyncStorage?.getItem && AsyncStorage?.setItem) return AsyncStorage;
-    return null;
-  } catch {
-    return null;
-  }
-}
-
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16 },
   header: { textAlign: 'center', marginBottom: 8 },
@@ -260,8 +247,9 @@ const styles = StyleSheet.create({
   progressWrap: { width: 120, height: 8, backgroundColor: '#00000010', borderRadius: 999, overflow: 'hidden' },
   progressBar: { height: '100%', backgroundColor: Colors.light.tint },
   secondary: { borderWidth: StyleSheet.hairlineWidth, borderColor: '#999', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 10 },
+  saveBtn: { alignSelf: 'center', backgroundColor: '#16a34a', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 16, marginTop: 8 },
   resetBtn: { alignSelf: 'center', backgroundColor: Colors.light.tint, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 16, marginTop: 8 },
   pressed: { opacity: 0.85 },
   message: { textAlign: 'center', opacity: 0.8, marginTop: 10 },
+  disabled: { opacity: 0.6 },
 });
-

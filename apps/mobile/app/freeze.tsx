@@ -4,6 +4,9 @@ import { useLocalSearchParams } from 'expo-router';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
+import { EmptyState } from '@/components/empty-state';
+import { router } from 'expo-router';
+import { useUI } from '@/providers/ui';
 
 type FreezeFrame = Record<string, number | string>;
 
@@ -15,6 +18,7 @@ export default function FreezeFrameScreen() {
   const [vin, setVin] = React.useState<string | null>(null);
   const [capturedAt, setCapturedAt] = React.useState<Date | null>(null);
   const [message, setMessage] = React.useState<string | null>(null);
+  const ui = useUI();
 
   React.useEffect(() => {
     // Simulate fetch; wire to real Mode 02/Freeze Frame later
@@ -37,7 +41,10 @@ export default function FreezeFrameScreen() {
   function openDataUrl(mime: string, content: string, filename: string) {
     const encoded = encodeURIComponent(content);
     const url = `data:${mime};charset=utf-8,${encoded}`;
-    Linking.openURL(url).catch(() => setMessage('Unable to open exporter. Long-press to copy text.'));
+    Linking.openURL(url).catch(() => {
+      setMessage('Unable to open exporter. Long-press to copy text.');
+      ui.setError('Export failed');
+    });
   }
 
   function toJson(): string {
@@ -95,7 +102,15 @@ export default function FreezeFrameScreen() {
           {message && <ThemedText style={styles.message}>{message}</ThemedText>}
         </ScrollView>
       ) : (
-        <ThemedText style={styles.empty}>No freeze frame data for current codes.</ThemedText>
+        <EmptyState
+          title="No freeze frame data"
+          description="No freeze frame is available for the current DTCs."
+          icon="hourglass-empty"
+          primaryLabel="Go to DTCs"
+          onPrimary={() => router.push('/dtcs')}
+          secondaryLabel="Read Codes"
+          onSecondary={() => router.push('/dtcs')}
+        />
       )}
     </ThemedView>
   );
@@ -140,4 +155,3 @@ const styles = StyleSheet.create({
   empty: { textAlign: 'center', opacity: 0.6, marginTop: 20 },
   message: { textAlign: 'center', opacity: 0.8, marginTop: 8 },
 });
-

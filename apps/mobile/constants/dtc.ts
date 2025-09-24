@@ -10,6 +10,10 @@ export type DtcEntry = {
   quickChecks: string[];
 };
 
+export type RankedCause = { cause: string; score: number };
+
+import { DTC_MERCEDES } from '@/constants/dtc-mercedes';
+
 export const DTC_LIBRARY: Record<string, DtcEntry> = {
   P0101: {
     code: 'P0101',
@@ -45,6 +49,7 @@ export const DTC_LIBRARY: Record<string, DtcEntry> = {
 
 export function lookupDtc(code: string): DtcEntry {
   const key = code.toUpperCase();
+  if (DTC_MERCEDES[key]) return DTC_MERCEDES[key];
   if (DTC_LIBRARY[key]) return DTC_LIBRARY[key];
   return {
     code: key,
@@ -64,3 +69,16 @@ function inferSeverity(code: string): DtcSeverity {
   return 'Info';
 }
 
+export function rankLikelyCauses(codes: string[]): RankedCause[] {
+  const tallies: Record<string, number> = {};
+  for (const c of codes) {
+    const e = lookupDtc(c);
+    const weight = e.severity === 'Critical' ? 2 : e.severity === 'Warning' ? 1 : 0.5;
+    for (const cause of e.causes) {
+      tallies[cause] = (tallies[cause] ?? 0) + weight;
+    }
+  }
+  return Object.entries(tallies)
+    .map(([cause, score]) => ({ cause, score }))
+    .sort((a, b) => b.score - a.score);
+}
