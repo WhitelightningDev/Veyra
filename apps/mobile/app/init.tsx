@@ -5,6 +5,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useUI } from '@/providers/ui';
+import { getTransport } from '@/services/obd-transport';
+import { parseElmLines } from 'core-obd';
 
 type StepStatus = 'pending' | 'running' | 'success' | 'error';
 type Step = {
@@ -35,21 +37,27 @@ export default function InitializingAdapter() {
     async function run() {
       ui.setBusy(true);
       setError(null);
-      // Simulate each step sequentially
-      for (let i = 0; i < steps.length; i++) {
+      const tr = getTransport();
+      if (!tr) throw new Error('No transport. Please reconnect.');
+      const cmds = ['ATZ','ATE0','ATL0','ATS0','ATSP6'];
+      for (let i = 0; i < cmds.length; i++) {
         if (cancelled) return;
         setSteps((prev) => prev.map((s, idx) => (idx === i ? { ...s, status: 'running' } : s)));
-        // simulate I/O latency
-        await delay(600);
-        if (cancelled) return;
-        // succeed the step (wire to real adapter later)
+        const lines = await tr.send(cmds[i]!);
+        const ok = lines.join(' ').toUpperCase().includes('OK') || cmds[i] === 'ATZ';
+        if (!ok) throw new Error(`Step failed: ${cmds[i]}`);
         setSteps((prev) => prev.map((s, idx) => (idx === i ? { ...s, status: 'success' } : s)));
       }
-
-      // Battery voltage check after init
-      if (cancelled) return;
-      const v = simulateBatteryVoltage();
-      setBattery(v);
+      // Test PID
+      setSteps((prev) => prev.map((s) => (s.id === 'pid0100' ? { ...s, status: 'running' } : s)));
+      const pidLines = await tr.send('0100');
+      const pidResps = parseElmLines(pidLines);
+      if (!pidResps.find((r) => r.service === '01' && r.pid === '00')) throw new Error('0100 failed');
+      setSteps((prev) => prev.map((s) => (s.id === 'pid0100' ? { ...s, status: 'success' } : s)));
+      // Battery voltage via ATRV
+      const rv = await tr.send('ATRV');
+      const match = rv.join(' ').match(/([0-9]+\.[0-9])\s*V/i);
+      if (match) setBattery(parseFloat(match[1]!));
       ui.setBleStatus('connected');
       ui.showToast('Adapter initialized');
       // Navigate to Dashboard after a short delay
