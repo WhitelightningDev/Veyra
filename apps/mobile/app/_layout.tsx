@@ -22,8 +22,8 @@ function OnboardGate() {
       try {
         const Storage = require('@react-native-async-storage/async-storage');
         const flag = await Storage.getItem('onboarded');
-        if (!flag && path !== '/onboarding') {
-          router.replace('/onboarding');
+        if (!flag && !path?.startsWith('/onboarding')) {
+          router.replace({ pathname: '/onboarding' as any });
         }
       } catch {}
     })();
