@@ -13,7 +13,8 @@
       "infoPlist": {
         "NSBluetoothAlwaysUsageDescription": "This app uses Bluetooth to connect to your OBD adapter.",
         "NSBluetoothPeripheralUsageDescription": "This app needs Bluetooth to communicate with your OBD adapter."
-      }
+      },
+      "bundleIdentifier": "com.anonymous.mobile"
     },
     "android": {
       "adaptiveIcon": {
@@ -38,6 +39,7 @@
     },
     "plugins": [
       "expo-router",
+      "expo-dev-client",
       [
         "expo-splash-screen",
         {

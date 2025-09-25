@@ -43,6 +43,9 @@ export async function scanForElm(timeoutMs = 5000): Promise<Discovered[]> {
   });
 }
 
+export type BleCharInfo = { uuid: string; isWritableWithResponse?: boolean; isWritableWithoutResponse?: boolean; isNotifiable?: boolean };
+export type BleServiceInfo = { uuid: string; characteristics: BleCharInfo[] };
+
 export class BleElmTransport {
   private manager: BleManager;
   private device: Device | null = null;
@@ -56,19 +59,20 @@ export class BleElmTransport {
     this.manager = manager || new lib.BleManager();
   }
 
-  async connect(deviceId: string) {
+  async connect(deviceId: string, hints?: { service?: string; write?: string; notify?: string }) {
     const dev = await this.manager.connectToDevice(deviceId, { autoConnect: false });
     this.device = await dev.discoverAllServicesAndCharacteristics();
-    // Try common Nordic UART service UUIDs
-    const NUS = '6E400001-B5A3-F393-E0A9-E50E24DCCA9E';
     const services = await this.device.services();
+    const wantedService = hints?.service?.toUpperCase();
     for (const s of services) {
+      if (wantedService && String(s.uuid).toUpperCase() !== wantedService) continue;
       const chars = await this.device!.characteristicsForService(s.uuid);
       for (const c of chars) {
         const uuid = String(c.uuid).toUpperCase();
-        if (!this.tx && (c.isWritableWithResponse || c.isWritableWithoutResponse)) this.tx = c;
-        if (!this.rx && c.isNotifiable) this.rx = c;
+        if (!this.tx && (hints?.write ? uuid === hints.write.toUpperCase() : (c.isWritableWithResponse || c.isWritableWithoutResponse))) this.tx = c;
+        if (!this.rx && (hints?.notify ? uuid === hints.notify.toUpperCase() : c.isNotifiable)) this.rx = c;
       }
+      if (this.tx && this.rx) break;
     }
     if (!this.tx || !this.rx) throw new Error('UART characteristics not found');
     await this.rx.monitor((error: any, ch: any) => {
@@ -113,5 +117,18 @@ export class BleElmTransport {
       };
       check();
     });
+  }
+
+  async inspect(deviceId: string): Promise<BleServiceInfo[]> {
+    const dev = await this.manager.connectToDevice(deviceId, { autoConnect: false });
+    const device = await dev.discoverAllServicesAndCharacteristics();
+    const out: BleServiceInfo[] = [];
+    const services = await device.services();
+    for (const s of services) {
+      const chars = await device.characteristicsForService(s.uuid);
+      out.push({ uuid: String(s.uuid).toUpperCase(), characteristics: chars.map((c:any) => ({ uuid: String(c.uuid).toUpperCase(), isWritableWithResponse: c.isWritableWithResponse, isWritableWithoutResponse: c.isWritableWithoutResponse, isNotifiable: c.isNotifiable })) });
+    }
+    try { await this.manager.cancelDeviceConnection(device.id); } catch {}
+    return out;
   }
 }
