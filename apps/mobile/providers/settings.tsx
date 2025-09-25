@@ -9,7 +9,16 @@ export type ThemePref = 'system' | 'light' | 'dark';
 export type SettingsState = {
   units: { temp: TempUnit; speed: SpeedUnit; pressure: PressureUnit };
   polling: { rateHz: number; preset: Preset };
-  connection: { autoReconnect: boolean; rememberLast: boolean };
+  connection: {
+    autoReconnect: boolean;
+    rememberLast: boolean;
+    preferClassicAndroid?: boolean;
+    wifiHost?: string;
+    wifiPort?: number;
+    bleServiceUuid?: string;
+    bleWriteUuid?: string;
+    bleNotifyUuid?: string;
+  };
   safety: { warnLowBatt: boolean; blockClearWhenRunning: boolean };
   theme: ThemePref;
   developer: { showRawElm: boolean };
@@ -26,7 +35,16 @@ export type SettingsState = {
 export const DEFAULT_SETTINGS: SettingsState = {
   units: { temp: 'C', speed: 'kmh', pressure: 'kPa' },
   polling: { rateHz: 2, preset: 'Basic' },
-  connection: { autoReconnect: true, rememberLast: true },
+  connection: {
+    autoReconnect: true,
+    rememberLast: true,
+    preferClassicAndroid: false,
+    wifiHost: '192.168.0.10',
+    wifiPort: 35000,
+    bleServiceUuid: '',
+    bleWriteUuid: '',
+    bleNotifyUuid: ''
+  },
   safety: { warnLowBatt: true, blockClearWhenRunning: true },
   theme: 'system',
   developer: { showRawElm: false },

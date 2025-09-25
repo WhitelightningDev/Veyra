@@ -23,6 +23,8 @@ config.resolver.extraNodeModules = {
   'react-native': path.resolve(workspaceRoot, 'node_modules/react-native'),
   'base-64': path.resolve(workspaceRoot, 'node_modules/base-64'),
   'react-native-ble-plx': path.resolve(workspaceRoot, 'node_modules/react-native-ble-plx'),
+  'react-native-tcp-socket': path.resolve(workspaceRoot, 'node_modules/react-native-tcp-socket'),
+  'react-native-bluetooth-classic': path.resolve(workspaceRoot, 'node_modules/react-native-bluetooth-classic'),
 };
 
 module.exports = config;
