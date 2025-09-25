@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, View, Platform } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Switch, View, Platform, TextInput } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
@@ -24,7 +24,7 @@ export default function SettingsScreen() {
     const r = Math.max(1, Math.min(10, draft.polling.rateHz + delta));
     setDraft({ ...draft, polling: { ...draft.polling, rateHz: r } });
   }
-  function setConn<K extends keyof SettingsState['connection']>(key: K, val: boolean) {
+  function setConn<K extends keyof SettingsState['connection']>(key: K, val: SettingsState['connection'][K]) {
     setDraft({ ...draft, connection: { ...draft.connection, [key]: val } });
   }
   function setSafety<K extends keyof SettingsState['safety']>(key: K, val: boolean) {
@@ -145,6 +145,31 @@ export default function SettingsScreen() {
         <Section title="Connection">
           <ToggleRow label="Auto-reconnect" value={connection.autoReconnect} onChange={(v) => setConn('autoReconnect', v)} />
           <ToggleRow label="Remember last adapter" value={connection.rememberLast} onChange={(v) => setConn('rememberLast', v)} />
+          {Platform.OS === 'android' && (
+            <ToggleRow label="Prefer Classic (Android)" value={connection.preferClassicAndroid ?? false} onChange={(v) => setConn('preferClassicAndroid' as any, v)} />
+          )}
+          <Row label="Wi‑Fi Host">
+            <TextInput
+              style={styles.input}
+              placeholder="192.168.0.10"
+              value={String(connection.wifiHost ?? '')}
+              onChangeText={(t) => setConn('wifiHost' as any, t)}
+              autoCapitalize="none"
+              keyboardType="numbers-and-punctuation"
+            />
+          </Row>
+          <Row label="Wi‑Fi Port">
+            <TextInput
+              style={[styles.input, { width: 100, textAlign: 'right' }]}
+              placeholder="35000"
+              value={String(connection.wifiPort ?? '')}
+              onChangeText={(t) => {
+                const n = parseInt(t, 10);
+                setConn('wifiPort' as any, Number.isFinite(n) ? n : (undefined as any));
+              }}
+              keyboardType="number-pad"
+            />
+          </Row>
         </Section>
 
         <Section title="Safety">
@@ -252,4 +277,5 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.85 },
   message: { textAlign: 'center', opacity: 0.8, marginTop: 10 },
   disabled: { opacity: 0.6 },
+  input: { minWidth: 160, borderWidth: StyleSheet.hairlineWidth, borderColor: '#999', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
 });
